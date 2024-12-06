@@ -1,71 +1,79 @@
-
-
-import { useEffect, useState } from 'react';
+import {useEffect, useState} from 'react';
 import './App.css';
 import supabase from './supabase_client';
 
 function App() {
+
   const [todoList, setTodoList] = useState([]);
   const [newTodo, setNewTodo] = useState('');
 
   useEffect(() => {
     fetchTodos();
-  }, []);
+  }, [])
+  
 
   const fetchTodos = async () => {
     const { data, error } = await supabase.from('TodoList').select('*');
     if (error) {
-      console.log('Error fetching', error);
+      console.error("Error fetching todos:", error);
+      setTodoList([]);
     } else {
-      setTodoList(data);
+      setTodoList(data || []);
     }
   };
 
   const addTodo = async () => {
+    if (!newTodo.trim()) {
+      console.log('Todo cannot be empty');
+      return; 
+    }
+  
     const newTodoData = {
-      name: newTodo,
+      name: newTodo.trim(),
       isCompleted: false,
     };
-    const { data, error } = await supabase.from('TodoList').insert([newTodoData]).single();
-
+  
+    const { data, error } = await supabase.from('TodoList').insert([newTodoData]).select().single();
+  
     if (error) {
-      console.log('Error adding TODO', error);
+      console.error('Error adding TODO', error);
     } else {
-      setTodoList((prev) => [...prev, data]);
-      setNewTodo('');
+      setTodoList((prev) => [...prev, data]); 
+      setNewTodo(''); 
     }
   };
 
   const completeTask = async (id, isCompleted) => {
-    const { error } = await supabase
-      .from('TodoList')
-      .update({ isCompleted: !isCompleted })
-      .eq('id', id);
-
+    const { error } = await supabase.from('TodoList').update({ isCompleted: !isCompleted }).eq('id', id);
     if (error) {
-      console.log('Error toggling task', error);
+      console.error('Error toggling task', error);
     } else {
-      setTodoList((prev) =>
-        prev.map((todo) =>
-          todo.id === id ? { ...todo, isCompleted: !isCompleted } : todo
-        )
+      const updatedTodoList = todoList.map((todo) =>
+        todo.id === id ? { ...todo, isCompleted: !isCompleted } : todo
       );
+      setTodoList(updatedTodoList);
     }
   };
 
   const deleteTodo = async (id) => {
-    const { error } = await supabase.from('TodoList').delete().eq('id', id);
-
-    if (error) {
-      console.log('Error deleting task', error);
-    } else {
-      setTodoList((prev) => prev.filter((todo) => todo.id !== id));
+    const confirmDelete = window.confirm('Are you sure you want to delete this todo?');
+  
+    if (confirmDelete) {
+      const { error } = await supabase.from('TodoList').delete().eq('id', id);
+  
+      if (error) {
+        console.error('Error deleting TODO', error);
+      } else {
+        setTodoList((prev) => prev.filter((todo) => todo.id !== id));
+      }
     }
   };
+  
+  
 
   return (
-    <div>
-      <h1>Todo List</h1>
+    <div className='App'>
+      <h1>Todolist</h1>
       <div>
         <input
           type="text"
@@ -77,18 +85,20 @@ function App() {
       </div>
 
       <ul>
-        {todoList.map((todo) => (
-          <li key={todo.id}>
-            <p>{todo.name}</p>
-            <button onClick={() => completeTask(todo.id, todo.isCompleted)}>
-              {todo.isCompleted ? 'Undo' : 'Complete Task'}
-            </button>
-            <button onClick={() => deleteTodo(todo.id)}>Delete Task</button>
-          </li>
-        ))}
+        {todoList.map((todo) =>
+          todo ? (
+            <li key={todo.id}>
+              <p>{todo.name}</p>
+              <button onClick={() => completeTask(todo.id, todo.isCompleted)}>
+                {todo.isCompleted ? 'Undo' : 'Complete task'}
+              </button>
+              <button onClick={() => deleteTodo(todo.id)}>
+                  Delete Task</button>
+            </li>
+          ) : null
+        )}
       </ul>
     </div>
   );
 }
-
 export default App;
